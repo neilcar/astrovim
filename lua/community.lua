@@ -14,6 +14,7 @@ return {
   { import = "astrocommunity.pack.full-dadbod" },
   -- import/override with your plugins folder
   { import = "astrocommunity.colorscheme.catppuccin" },
+  { import = "astrocommunity.ai.claudecode-nvim" }, -- Claude Code IDE integration: <Leader>A…
   { import = "astrocommunity.motion.mini-surround" },
   -- { import = "astrocommunity.completion.mini-completion" },
   -- { import = "astrocommunity.editing-support.yanky-nvim" },
