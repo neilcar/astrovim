@@ -16,7 +16,6 @@ return {
   { import = "astrocommunity.colorscheme.catppuccin" },
   { import = "astrocommunity.motion.mini-surround" },
   -- { import = "astrocommunity.completion.mini-completion" },
-  { import = "astrocommunity.completion.codeium-vim" },
   -- { import = "astrocommunity.editing-support.yanky-nvim" },
   { import = "astrocommunity.diagnostics.error-lens-nvim" },
   { import = "astrocommunity.terminal-integration.nvim-unception" },
