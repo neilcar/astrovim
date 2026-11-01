@@ -13,7 +13,7 @@ return {
   { import = "astrocommunity.pack.docker" },
   { import = "astrocommunity.pack.full-dadbod" },
   -- import/override with your plugins folder
-  { import = "astrocommunity.colorscheme.gruvbox-nvim" }, -- options in plugins/gruvbox.lua
+  { import = "astrocommunity.colorscheme.mini-base16" }, -- for colors/vt220-amber.lua
   { import = "astrocommunity.ai.claudecode-nvim" }, -- Claude Code IDE integration: <Leader>A…
   { import = "astrocommunity.motion.mini-surround" },
   -- { import = "astrocommunity.completion.mini-completion" },
