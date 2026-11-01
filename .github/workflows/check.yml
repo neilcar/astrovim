@@ -1,0 +1,86 @@
+# Start nvim with this config on clean Linux and macOS machines and fail on anything you would see at
+# startup: notifications at WARN or above, error messages (.ci/startup-check.lua). The chezmoi machines
+# follow the `stable` branch, which only moves forward when this passes on a push to main.
+# Nightly too: the machines update plugins to their latest versions every day (autoupdate's Lazy sync),
+# so a plugin release that breaks this config fails the next run (and GitHub emails you).
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  startup:
+    name: startup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: nvim-config
+
+      - name: Install Neovim and the tree-sitter CLI (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+          npm install -g tree-sitter-cli
+
+      - name: Install Neovim and the tree-sitter CLI (macOS)
+        if: runner.os == 'macOS'
+        run: brew install neovim tree-sitter-cli
+
+      - name: Put the config in place
+        run: |
+          mkdir -p ~/.config
+          ln -s "$GITHUB_WORKSPACE/nvim-config" ~/.config/nvim
+          nvim --version | head -1; tree-sitter --version
+
+      - name: Install plugins
+        timeout-minutes: 15
+        run: nvim --headless "+Lazy! sync" +qa
+
+      - name: Startup check
+        timeout-minutes: 10
+        run: nvim --headless --cmd "luafile $HOME/.config/nvim/.ci/startup-check.lua"
+
+  # Move `stable` to this commit once both checks pass. Only forward, so an older run finishing late
+  # can't roll it back.
+  promote:
+    name: promote to stable
+    needs: startup
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: promote-stable
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward stable to this commit
+        run: |
+          git fetch -q origin stable 2>/dev/null || true
+          if git rev-parse -q --verify origin/stable >/dev/null && ! git merge-base --is-ancestor origin/stable "$GITHUB_SHA"; then
+            echo "stable is not an ancestor of $GITHUB_SHA (a newer commit was already promoted); leaving it"
+            exit 0
+          fi
+          git push origin "$GITHUB_SHA:refs/heads/stable"
+          echo "stable -> $GITHUB_SHA"
