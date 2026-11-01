@@ -4,6 +4,6 @@ return {
   "AstroNvim/astroui",
   ---@type AstroUIOpts
   opts = {
-    colorscheme = "vt220-does-not-exist", -- or "vt220-amber"
+    colorscheme = "vt220-green", -- or "vt220-amber"
   },
 }
