@@ -1,0 +1,70 @@
+# Reusable: install this config's plugins at the versions in lazy-lock.json (or in a lockfile handed in by
+# the plugin-update job) on a clean Linux or macOS machine, then run .ci/startup-check.lua, which fails on
+# any warning or error you would see when nvim starts.
+name: startup
+
+on:
+  workflow_call:
+    inputs:
+      lockfile-artifact:
+        description: Name of an uploaded artifact holding a lazy-lock.json to test instead of the committed one
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  startup:
+    name: startup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: nvim-config
+
+      - name: Use the lockfile under test
+        if: inputs.lockfile-artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.lockfile-artifact }}
+          path: nvim-config
+
+      - name: Install Neovim, the tree-sitter CLI and luarocks (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+          npm install -g tree-sitter-cli
+          # luarocks (Lua 5.1) builds Neorg's parser rocks, as on the machines (luarocks is in the Brewfile)
+          sudo apt-get update -q && sudo apt-get install -y -q luarocks lua5.1 liblua5.1-0-dev
+
+      - name: Install Neovim, the tree-sitter CLI and luarocks (macOS)
+        if: runner.os == 'macOS'
+        run: brew install neovim tree-sitter-cli luarocks
+
+      - name: Put the config in place
+        run: |
+          mkdir -p ~/.config
+          ln -s "$GITHUB_WORKSPACE/nvim-config" ~/.config/nvim
+          nvim --version | head -1; tree-sitter --version
+
+      - name: Install plugins at the locked versions
+        timeout-minutes: 15
+        run: nvim --headless "+Lazy! install" "+Lazy! restore" +qa
+
+      - name: Lockfile covers every plugin
+        run: |
+          cd nvim-config
+          git diff --exit-code -- lazy-lock.json || {
+            echo "::error::installing changed lazy-lock.json: a plugin in the config isn't in it. Run :Lazy update (or the update-plugins workflow) and commit the lockfile."
+            exit 1; }
+
+      - name: Startup check
+        timeout-minutes: 10
+        run: nvim --headless --cmd "luafile $HOME/.config/nvim/.ci/startup-check.lua"
