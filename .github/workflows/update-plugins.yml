@@ -33,6 +33,7 @@ jobs:
         timeout-minutes: 20
         run: |
           mkdir -p ~/.config && ln -s "$GITHUB_WORKSPACE/nvim-config" ~/.config/nvim
+          nvim --headless "+Lazy! install" +qa
           nvim --headless "+Lazy! update" +qa
       - name: Anything new?
         id: diff

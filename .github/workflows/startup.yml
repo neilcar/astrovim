@@ -54,14 +54,21 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/nvim-config" ~/.config/nvim
           nvim --version | head -1; tree-sitter --version
 
+      # A fresh install puts plugins that come from imports (AstroCommunity) in a second round, at their
+      # latest versions, and rewrites the lockfile to match; restore would then keep those. So: install,
+      # put the lockfile under test back, then restore every plugin to it.
       - name: Install plugins at the locked versions
         timeout-minutes: 15
-        run: nvim --headless "+Lazy! install" "+Lazy! restore" +qa
+        run: |
+          cp nvim-config/lazy-lock.json "$RUNNER_TEMP/lazy-lock.json"
+          nvim --headless "+Lazy! install" +qa
+          cp "$RUNNER_TEMP/lazy-lock.json" nvim-config/lazy-lock.json
+          nvim --headless "+Lazy! restore" +qa
 
       - name: Lockfile covers every plugin
         run: |
           cd nvim-config
-          git diff --exit-code -- lazy-lock.json || {
+          cmp -s lazy-lock.json "$RUNNER_TEMP/lazy-lock.json" || { git diff --no-index "$RUNNER_TEMP/lazy-lock.json" lazy-lock.json;
             echo "::error::installing changed lazy-lock.json: a plugin in the config isn't in it. Run :Lazy update (or the update-plugins workflow) and commit the lockfile."
             exit 1; }
 
